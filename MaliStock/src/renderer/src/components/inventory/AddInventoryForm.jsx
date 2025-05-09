@@ -9,6 +9,7 @@ const AddInventoryForm = ({ onAdd, onCancel }) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+  const [duplicateError, setDuplicateError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     category_id: '',
@@ -109,6 +110,19 @@ const AddInventoryForm = ({ onAdd, onCancel }) => {
         [name]: null
       }));
     }
+
+    // Clear duplicate error when name is changed
+    if (name === 'name' && duplicateError) {
+      setDuplicateError('');
+    }
+
+    // Clear general error when any field is changed
+    if (errors.general) {
+      setErrors(prev => ({
+        ...prev,
+        general: null
+      }));
+    }
   };
 
   const validateForm = () => {
@@ -147,6 +161,9 @@ const AddInventoryForm = ({ onAdd, onCancel }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Clear any previous duplicate error
+    setDuplicateError('');
+
     if (!validateForm()) {
       return;
     }
@@ -172,6 +189,17 @@ const AddInventoryForm = ({ onAdd, onCancel }) => {
       });
     } catch (error) {
       console.error('Error adding inventory item:', error);
+
+      // Check if it's a duplicate item error
+      if (error.message && error.message.includes('already exists')) {
+        setDuplicateError('An item with this name already exists in your inventory.');
+      } else {
+        // Set a generic error
+        setErrors(prev => ({
+          ...prev,
+          general: 'Failed to add item. Please try again.'
+        }));
+      }
     }
   };
 
@@ -191,6 +219,18 @@ const AddInventoryForm = ({ onAdd, onCancel }) => {
   return (
     <form onSubmit={handleSubmit} style={{ width: '100%' }}>
       <h2 className="text-xl font-semibold mb-4">Add New Inventory Item</h2>
+
+      {duplicateError && (
+        <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-md">
+          {duplicateError}
+        </div>
+      )}
+
+      {errors.general && (
+        <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-md">
+          {errors.general}
+        </div>
+      )}
 
       <Input
         label="Item Name"

@@ -82,32 +82,15 @@ const EditInventoryForm = ({ item, onUpdate, onCancel }) => {
     }
   }, [item]);
 
-  const handleAddCategory = (newCategory) => {
-    // Add the new category to the categories list
-    setCategories(prev => {
-      // Add the new category and sort again
-      const updatedCategories = [...prev, newCategory];
-      const defaultCategoryNames = new Set(defaultCategories);
-
-      return updatedCategories.sort((a, b) => {
-        const aIsDefault = defaultCategoryNames.has(a.name);
-        const bIsDefault = defaultCategoryNames.has(b.name);
-
-        if (aIsDefault && !bIsDefault) return -1;
-        if (!aIsDefault && bIsDefault) return 1;
-        return a.name.localeCompare(b.name);
-      });
-    });
-
-    // Select the new category in the form
-    setFormData(prev => ({
-      ...prev,
-      category_id: newCategory.id
-    }));
-  };
+  // No longer need handleAddCategory since category is not editable
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // Skip handling for name and category_id since they're not editable anymore
+    if (name === 'name' || name === 'category_id') {
+      return;
+    }
 
     // If changing quantity, check if we need to update is_empty status
     if (name === 'quantity') {
@@ -139,18 +122,20 @@ const EditInventoryForm = ({ item, onUpdate, onCancel }) => {
         [name]: null
       }));
     }
+
+    // Clear general error when any field is changed
+    if (errors.general) {
+      setErrors(prev => ({
+        ...prev,
+        general: null
+      }));
+    }
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-
-    if (!formData.category_id) {
-      newErrors.category_id = 'Category is required';
-    }
+    // No need to validate name and category as they're not editable anymore
 
     if (formData.quantity) {
       const quantityNum = Number(formData.quantity);
@@ -185,18 +170,24 @@ const EditInventoryForm = ({ item, onUpdate, onCancel }) => {
       // Convert numeric fields to numbers
       const quantity = formData.quantity ? Number(formData.quantity) : 0;
 
+      // Only include fields that can be edited (exclude name and category_id)
       const itemData = {
-        ...formData,
         id: item.id,
         quantity: quantity,
+        unit: formData.unit,
         last_price: formData.last_price ? Number(formData.last_price) : null,
-        category_id: formData.category_id ? Number(formData.category_id) : null,
         is_empty: formData.is_empty !== undefined ? formData.is_empty : (quantity > 0 ? 0 : 1)
       };
 
       await onUpdate(itemData);
     } catch (error) {
       console.error('Error updating inventory item:', error);
+
+      // Set a generic error
+      setErrors(prev => ({
+        ...prev,
+        general: 'Failed to update item. Please try again.'
+      }));
     }
   };
 
@@ -217,61 +208,26 @@ const EditInventoryForm = ({ item, onUpdate, onCancel }) => {
     <form onSubmit={handleSubmit} style={{ width: '100%' }}>
       <h2 className="text-xl font-semibold mb-4">Edit Inventory Item</h2>
 
-      <Input
-        label="Item Name"
-        id="name"
-        name="name"
-        value={formData.name}
-        onChange={handleChange}
-        placeholder="Enter item name"
-        required
-        error={errors.name}
-      />
+      {errors.general && (
+        <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded-md">
+          {errors.general}
+        </div>
+      )}
 
       <div className="mb-4">
-        <label htmlFor="category_id" className="input-label">
-          Category <span className="input-required">*</span>
-        </label>
-        <div className="flex">
-          <Select
-            id="category_id"
-            name="category_id"
-            value={formData.category_id}
-            onChange={handleChange}
-            options={[
-              { value: '', label: 'Select a category' },
-              // Show default categories first
-              ...(categories && categories.length > 0
-                ? defaultCategories.map(catName => {
-                    // Find the category in the fetched categories
-                    const existingCat = categories.find(c => c && c.name === catName);
-                    return existingCat
-                      ? { value: existingCat.id, label: existingCat.name }
-                      : null;
-                  }).filter(Boolean)
-                : []),
-              // Then show any additional user-added categories
-              ...(categories && categories.length > 0
-                ? categories
-                    .filter(cat => cat && !defaultCategories.includes(cat.name))
-                    .map(cat => ({ value: cat.id, label: cat.name }))
-                : [])
-            ]}
-            required
-            error={errors.category_id}
-            className="mb-0 flex-1"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setIsAddCategoryModalOpen(true)}
-            className="ml-2"
-            style={{ marginBottom: '0', height: '38px' }}
-          >
-            + Add
-          </Button>
+        <label className="input-label">Item Name</label>
+        <div className="p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+          {formData.name}
         </div>
-        {errors.category_id && <p className="input-error-message">{errors.category_id}</p>}
+      </div>
+
+      <div className="mb-4">
+        <label className="input-label">Category</label>
+        <div className="p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+          {categories && categories.length > 0
+            ? categories.find(c => c.id === Number(formData.category_id))?.name || 'Uncategorized'
+            : 'Loading categories...'}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -326,16 +282,7 @@ const EditInventoryForm = ({ item, onUpdate, onCancel }) => {
         </Button>
       </div>
 
-      {/* Add Category Modal */}
-      <Modal
-        isOpen={isAddCategoryModalOpen}
-        onClose={() => setIsAddCategoryModalOpen(false)}
-      >
-        <AddCategoryForm
-          onAdd={handleAddCategory}
-          onCancel={() => setIsAddCategoryModalOpen(false)}
-        />
-      </Modal>
+      {/* No longer need Add Category Modal since category is not editable */}
     </form>
   );
 };

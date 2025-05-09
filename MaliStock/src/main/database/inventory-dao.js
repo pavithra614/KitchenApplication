@@ -96,6 +96,7 @@ const InventoryDAO = {
    * Add a new inventory item
    * @param {Object} item - Item data
    * @returns {Promise<Number>} - Promise resolving to ID of the new item
+   * @throws {Error} - If an item with the same name already exists
    */
   addItem: async (item) => {
     return new Promise(async (resolve, reject) => {
@@ -103,18 +104,40 @@ const InventoryDAO = {
         const db = await getDB();
         const { name, category_id, quantity, unit, last_price } = item;
 
-        const query = `
-          INSERT INTO inventory_items (name, category_id, quantity, unit, last_price)
-          VALUES (?, ?, ?, ?, ?)
+        // Check if an item with the same name already exists
+        const checkQuery = `
+          SELECT id FROM inventory_items WHERE LOWER(name) = LOWER(?)
         `;
 
-        db.run(query, [name, category_id, quantity || 0, unit, last_price], function(err) {
+        db.get(checkQuery, [name], (err, existingItem) => {
           if (err) {
-            console.error('Error adding inventory item:', err);
+            console.error('Error checking for existing item:', err);
             reject(err);
             return;
           }
-          resolve(this.lastID);
+
+          if (existingItem) {
+            // Item with the same name already exists
+            const error = new Error('An item with this name already exists');
+            error.code = 'DUPLICATE_ITEM';
+            reject(error);
+            return;
+          }
+
+          // No duplicate found, proceed with insertion
+          const insertQuery = `
+            INSERT INTO inventory_items (name, category_id, quantity, unit, last_price)
+            VALUES (?, ?, ?, ?, ?)
+          `;
+
+          db.run(insertQuery, [name, category_id, quantity || 0, unit, last_price], function(err) {
+            if (err) {
+              console.error('Error adding inventory item:', err);
+              reject(err);
+              return;
+            }
+            resolve(this.lastID);
+          });
         });
       } catch (error) {
         console.error('Error in addItem:', error);
@@ -128,49 +151,82 @@ const InventoryDAO = {
    * @param {Number} id - Item ID
    * @param {Object} updates - Fields to update
    * @returns {Promise<Boolean>} - Promise resolving to success status
+   * @throws {Error} - If an item with the same name already exists
    */
   updateItem: async (id, updates) => {
     return new Promise(async (resolve, reject) => {
       try {
         const db = await getDB();
 
-        const allowedFields = ['name', 'category_id', 'quantity', 'unit', 'last_price', 'is_empty'];
-        const setStatements = [];
-        const params = [];
+        // If name is being updated, check for duplicates
+        if (updates.name !== undefined) {
+          const checkQuery = `
+            SELECT id FROM inventory_items
+            WHERE LOWER(name) = LOWER(?) AND id != ?
+          `;
 
-        // Build SET statements for allowed fields
-        for (const field of allowedFields) {
-          if (updates[field] !== undefined) {
-            setStatements.push(`${field} = ?`);
-            params.push(updates[field]);
+          db.get(checkQuery, [updates.name, id], (err, existingItem) => {
+            if (err) {
+              console.error('Error checking for existing item:', err);
+              reject(err);
+              return;
+            }
+
+            if (existingItem) {
+              // Item with the same name already exists
+              const error = new Error('An item with this name already exists');
+              error.code = 'DUPLICATE_ITEM';
+              reject(error);
+              return;
+            }
+
+            // No duplicate found, proceed with update
+            performUpdate();
+          });
+        } else {
+          // No name update, proceed directly
+          performUpdate();
+        }
+
+        function performUpdate() {
+          const allowedFields = ['name', 'category_id', 'quantity', 'unit', 'last_price', 'is_empty'];
+          const setStatements = [];
+          const params = [];
+
+          // Build SET statements for allowed fields
+          for (const field of allowedFields) {
+            if (updates[field] !== undefined) {
+              setStatements.push(`${field} = ?`);
+              params.push(updates[field]);
+            }
           }
-        }
 
-        // Add last_updated timestamp
-        setStatements.push('last_updated = CURRENT_TIMESTAMP');
+          // Add last_updated timestamp
+          setStatements.push('last_updated = CURRENT_TIMESTAMP');
 
-        if (setStatements.length === 0) {
-          resolve(false); // Nothing to update
-          return;
-        }
-
-        // Add ID to params
-        params.push(id);
-
-        const query = `
-          UPDATE inventory_items
-          SET ${setStatements.join(', ')}
-          WHERE id = ?
-        `;
-
-        db.run(query, params, function(err) {
-          if (err) {
-            console.error(`Error updating inventory item ${id}:`, err);
-            reject(err);
+          if (setStatements.length === 0) {
+            resolve(false); // Nothing to update
             return;
           }
-          resolve(this.changes > 0);
-        });
+
+          // Add ID to params
+          params.push(id);
+
+          const query = `
+            UPDATE inventory_items
+            SET ${setStatements.join(', ')}
+            WHERE id = ?
+          `;
+
+          db.run(query, params, function(err) {
+            if (err) {
+              console.error(`Error updating inventory item ${id}:`, err);
+              reject(err);
+              return;
+            }
+            resolve(this.changes > 0);
+          });
+        }
       } catch (error) {
         console.error('Error in updateItem:', error);
         reject(error);
