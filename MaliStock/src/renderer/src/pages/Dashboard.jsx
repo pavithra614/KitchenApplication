@@ -21,12 +21,17 @@ const Dashboard = () => {
         const categories = await window.api.categories.getAll();
 
         setInventorySummary({
-          totalItems: items.length,
-          emptyItems: items.filter(item => item.is_empty).length,
-          categories: categories
+          totalItems: items ? items.length : 0,
+          emptyItems: items ? items.filter(item => item && item.is_empty).length : 0,
+          categories: categories || []
         });
       } catch (error) {
         console.error('Error fetching inventory summary:', error);
+        setInventorySummary({
+          totalItems: 0,
+          emptyItems: 0,
+          categories: []
+        });
       }
     };
 
@@ -35,8 +40,17 @@ const Dashboard = () => {
       try {
         const collections = await window.api.collections.getAll();
 
+        if (!collections || !Array.isArray(collections)) {
+          console.warn('Collections data is undefined or not an array');
+          setExpenseSummary({
+            totalSpent: 0,
+            recentCollections: []
+          });
+          return;
+        }
+
         const totalSpent = collections.reduce((total, collection) => {
-          return total + (collection.total_amount || 0);
+          return total + (collection && collection.total_amount ? collection.total_amount : 0);
         }, 0);
 
         setExpenseSummary({
@@ -45,6 +59,10 @@ const Dashboard = () => {
         });
       } catch (error) {
         console.error('Error fetching expense summary:', error);
+        setExpenseSummary({
+          totalSpent: 0,
+          recentCollections: []
+        });
       }
     };
 
@@ -70,12 +88,15 @@ const Dashboard = () => {
         <div className="mt-4">
           <h4 className="text-sm font-medium text-gray-500 mb-2">Categories</h4>
           <ul className="space-y-1">
-            {inventorySummary.categories.slice(0, 5).map(category => (
-              <li key={category.id} className="flex justify-between">
-                <span>{category.name}</span>
-                <span className="text-gray-500">{category.item_count} items</span>
-              </li>
-            ))}
+            {inventorySummary.categories && inventorySummary.categories.length > 0
+              ? inventorySummary.categories.slice(0, 5).map(category => (
+                  <li key={category.id} className="flex justify-between">
+                    <span>{category.name}</span>
+                    <span className="text-gray-500">{category.item_count} items</span>
+                  </li>
+                ))
+              : <li className="text-gray-500">No categories found</li>
+            }
           </ul>
         </div>
       </Card>
@@ -89,12 +110,15 @@ const Dashboard = () => {
         <div>
           <h4 className="text-sm font-medium text-gray-500 mb-2">Recent Collections</h4>
           <ul className="space-y-2">
-            {expenseSummary.recentCollections.map(collection => (
-              <li key={collection.id} className="flex justify-between border-b pb-2">
-                <span>{collection.name}</span>
-                <span className="font-medium">₹{collection.total_amount?.toFixed(2) || '0.00'}</span>
-              </li>
-            ))}
+            {expenseSummary.recentCollections && expenseSummary.recentCollections.length > 0
+              ? expenseSummary.recentCollections.map(collection => (
+                  <li key={collection.id} className="flex justify-between border-b pb-2">
+                    <span>{collection.name}</span>
+                    <span className="font-medium">₹{collection.total_amount?.toFixed(2) || '0.00'}</span>
+                  </li>
+                ))
+              : <li className="text-gray-500">No recent collections</li>
+            }
           </ul>
         </div>
       </Card>

@@ -43,7 +43,12 @@ function App() {
       case 'dashboard':
         return <Dashboard />;
       case 'inventory':
-        return <Inventory />;
+        return (
+          <Inventory
+            isAddModalOpen={isAddInventoryModalOpen}
+            setIsAddModalOpen={setIsAddInventoryModalOpen}
+          />
+        );
       case 'collections':
         return <div className="text-center py-8">Collections page coming soon!</div>;
       case 'expenses':
@@ -57,24 +62,29 @@ function App() {
     }
   };
 
+  // State for modals
+  const [isAddInventoryModalOpen, setIsAddInventoryModalOpen] = useState(false);
+  const [isAddCollectionModalOpen, setIsAddCollectionModalOpen] = useState(false);
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+
   // Define actions for each page
   const renderActions = () => {
     switch (activeNavItem) {
       case 'inventory':
         return (
-          <Button>
+          <Button onClick={() => setIsAddInventoryModalOpen(true)}>
             Add New Item
           </Button>
         );
       case 'collections':
         return (
-          <Button>
+          <Button onClick={() => setIsAddCollectionModalOpen(true)}>
             Add Collection
           </Button>
         );
       case 'categories':
         return (
-          <Button>
+          <Button onClick={() => setIsAddCategoryModalOpen(true)}>
             Add Category
           </Button>
         );

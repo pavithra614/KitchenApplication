@@ -39,6 +39,7 @@ const Input = ({
         placeholder={placeholder}
         required={required}
         className={inputClass}
+        min={type === 'number' ? 0 : undefined}
         {...props}
       />
 

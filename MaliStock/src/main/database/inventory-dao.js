@@ -24,19 +24,19 @@ const InventoryDAO = {
         const params = [];
 
         // Apply filters if provided
-        if (filters.category_id) {
+        if (filters.category_id !== undefined && filters.category_id !== '') {
           whereConditions.push('i.category_id = ?');
           params.push(filters.category_id);
         }
 
         if (filters.is_empty !== undefined) {
           whereConditions.push('i.is_empty = ?');
-          params.push(filters.is_empty ? 1 : 0);
+          params.push(filters.is_empty);
         }
 
-        if (filters.name) {
+        if (filters.name && filters.name.trim() !== '') {
           whereConditions.push('i.name LIKE ?');
-          params.push(`%${filters.name}%`);
+          params.push(`%${filters.name.trim()}%`);
         }
 
         if (whereConditions.length > 0) {

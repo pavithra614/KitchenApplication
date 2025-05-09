@@ -52,7 +52,7 @@ const Select = ({
         ))}
       </select>
 
-      {error && <p className="input-error-message">{error}</p>}
+      {error && !className.includes('mb-0') && <p className="input-error-message">{error}</p>}
     </div>
   );
 };
