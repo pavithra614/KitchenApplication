@@ -1,0 +1,63 @@
+  /**
+   * Get price history for an item
+   * @param {Number} itemId - Item ID
+   * @returns {Promise<Array>} - Promise resolving to list of price history entries
+   */
+  getItemPriceHistory: async (itemId) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (!itemId) {
+          console.error('Invalid item ID provided to getItemPriceHistory:', itemId);
+          resolve([]);
+          return;
+        }
+
+        console.log('Getting price history for item ID:', itemId);
+
+        const db = await getDB();
+
+        // First check if the price_history table exists
+        db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='price_history'", (err, table) => {
+          if (err) {
+            console.error('Error checking if price_history table exists:', err);
+            reject(err);
+            return;
+          }
+
+          if (!table) {
+            console.error('price_history table does not exist');
+            // Return empty array instead of rejecting to avoid crashing the UI
+            resolve([]);
+            return;
+          }
+
+          // Table exists, proceed with query
+          const query = `
+            SELECT ph.*, c.name as collection_name, c.purchase_date
+            FROM price_history ph
+            LEFT JOIN collections c ON ph.collection_id = c.id
+            WHERE ph.item_id = ?
+            ORDER BY ph.recorded_at DESC
+          `;
+
+          db.all(query, [itemId], (err, rows) => {
+            if (err) {
+              console.error(`Error getting price history for item ${itemId}:`, err);
+              reject(err);
+              return;
+            }
+
+            console.log(`Found ${rows ? rows.length : 0} price history records for item ${itemId}`);
+            resolve(rows || []);
+          });
+        });
+      } catch (error) {
+        console.error('Error in getItemPriceHistory:', error);
+        // Return empty array instead of rejecting to avoid crashing the UI
+        resolve([]);
+      }
+    });
+  }
+};
+
+export default CollectionDAO;

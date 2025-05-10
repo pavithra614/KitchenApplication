@@ -4,11 +4,16 @@ import Select from '../ui/Select';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import AddCategoryForm from './AddCategoryForm';
+import PriceHistoryView from './PriceHistoryView';
+import { isPriceHistoryAvailable, setupTemporaryPriceHistory, getPriceHistory } from '../../utils/priceHistoryUtils';
+import { getStandardUnit, isWeightUnit, isVolumeUnit, isCountUnit } from '../../utils/unitUtils';
 
 const EditInventoryForm = ({ item, onUpdate, onCancel }) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+  const [isPriceHistoryModalOpen, setIsPriceHistoryModalOpen] = useState(false);
+  const [priceHistory, setPriceHistory] = useState([]);
   const [formData, setFormData] = useState({
     name: item?.name || '',
     category_id: item?.category_id || '',
@@ -66,7 +71,39 @@ const EditInventoryForm = ({ item, onUpdate, onCancel }) => {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+
+    // Fetch price history for this item
+    const fetchPriceHistory = async () => {
+      if (item && item.id) {
+        try {
+          // Check if the price history feature is available
+          if (!isPriceHistoryAvailable()) {
+            console.log('Price history feature not available, attempting to set up temporary implementation');
+
+            // Try to set up a temporary implementation
+            const setupSuccess = setupTemporaryPriceHistory();
+
+            if (!setupSuccess || !isPriceHistoryAvailable()) {
+              console.error('Failed to set up price history feature');
+              setPriceHistory([]);
+              return;
+            }
+
+            console.log('Temporary price history implementation set up successfully');
+          }
+
+          // Use our utility function to get price history
+          const history = await getPriceHistory(item.id);
+          setPriceHistory(history || []);
+        } catch (error) {
+          console.error('Error fetching price history:', error);
+          setPriceHistory([]);
+        }
+      }
+    };
+
+    fetchPriceHistory();
+  }, [item]);
 
   useEffect(() => {
     // Update form data when item changes
@@ -255,16 +292,86 @@ const EditInventoryForm = ({ item, onUpdate, onCancel }) => {
         />
       </div>
 
-      <Input
-        label="Price"
-        id="last_price"
-        name="last_price"
-        type="number"
-        value={formData.last_price}
-        onChange={handleChange}
-        placeholder="0.00"
-        error={errors.last_price}
-      />
+      <div className="mb-4">
+        <div className="flex justify-between items-start">
+          <div className="flex flex-col flex-grow">
+            <Input
+              label={`Unit Price (₹ per ${formData.unit ? getStandardUnit(formData.unit) : 'unit'})`}
+              id="last_price"
+              name="last_price"
+              type="number"
+              value={formData.last_price}
+              onChange={handleChange}
+              placeholder="0.00"
+              step="0.01"
+              error={errors.last_price}
+            />
+
+            <div className="text-xs mt-1 bg-green-100 p-2 rounded-md text-green-800">
+              <span className="font-bold">MANUAL SETTING ONLY</span>
+              <span className="block mt-1">
+                This unit price is only updated manually by you. It will NOT change automatically when adding items to collections.
+              </span>
+
+              {formData.unit && (
+                <div className="mt-1">
+                  {isWeightUnit(formData.unit) && (
+                    <span>Enter the price per kg, regardless of the quantity in stock</span>
+                  )}
+                  {isVolumeUnit(formData.unit) && (
+                    <span>Enter the price per liter, regardless of the quantity in stock</span>
+                  )}
+                  {isCountUnit(formData.unit) && (
+                    <span>Enter the price per {formData.unit}, regardless of the quantity in stock</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 ml-4">
+            <Button
+              type="button"
+              variant="info"
+              size="sm"
+              onClick={() => setIsPriceHistoryModalOpen(true)}
+            >
+              View Price History
+            </Button>
+          </div>
+        </div>
+
+        {/* Display Last Spent Price */}
+        {item && item.last_spent_price && (
+          <div className="mt-2 p-2 bg-blue-50 rounded-md">
+            <p className="text-sm font-medium text-blue-700">
+              Last Spent Price: ₹{parseFloat(item.last_spent_price).toFixed(2)}
+            </p>
+            <p className="text-xs text-blue-600">
+              This is the total amount spent last time for this item
+            </p>
+          </div>
+        )}
+
+        <div className="mt-2 text-sm text-gray-600">
+          {priceHistory.length > 0 ? (
+            <>
+              <p>
+                <strong>Price History:</strong> {priceHistory.length} records available
+              </p>
+              <p className="text-xs">
+                Last price change: {new Date(priceHistory[0]?.recorded_at).toLocaleDateString()} -
+                ₹{priceHistory[0]?.unit_price.toFixed(2)} per {item?.unit || 'unit'}
+              </p>
+            </>
+          ) : (
+            <p>
+              <strong>Price History:</strong> No price history available yet.
+              Add this item to a collection to start tracking prices.
+            </p>
+          )}
+        </div>
+      </div>
 
       <div className="flex justify-end mt-6 space-x-2">
         <Button
@@ -282,7 +389,17 @@ const EditInventoryForm = ({ item, onUpdate, onCancel }) => {
         </Button>
       </div>
 
-      {/* No longer need Add Category Modal since category is not editable */}
+      {/* Price History Modal */}
+      <Modal
+        isOpen={isPriceHistoryModalOpen}
+        onClose={() => setIsPriceHistoryModalOpen(false)}
+      >
+        <PriceHistoryView
+          itemId={item.id}
+          itemName={item.name}
+          unit={item.unit}
+        />
+      </Modal>
     </form>
   );
 };

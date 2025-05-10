@@ -130,6 +130,15 @@ h3 {
   background-color: #059669;
 }
 
+.btn-info {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.btn-info:hover {
+  background-color: #2563eb;
+}
+
 .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.875rem;

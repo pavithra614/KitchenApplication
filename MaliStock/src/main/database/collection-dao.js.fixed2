@@ -1,0 +1,109 @@
+                // Get the inventory item to check its unit
+                db.get('SELECT unit FROM inventory_items WHERE id = ?', [item_id], (err, inventoryItem) => {
+                  if (err) {
+                    db.run('ROLLBACK');
+                    console.error('Error getting inventory item unit:', err);
+                    reject(err);
+                    return;
+                  }
+
+                  // Convert quantity to the inventory unit if needed
+                  let quantityToAdd = quantity;
+
+                  if (inventoryItem && inventoryItem.unit && unit && inventoryItem.unit !== unit) {
+                    // Handle weight unit conversions
+                    if ((inventoryItem.unit === 'kg' && unit === 'g') ||
+                        (inventoryItem.unit === 'kg' && unit === 'mg')) {
+                      // Convert g to kg
+                      if (unit === 'g') {
+                        quantityToAdd = quantity / 1000;
+                        console.log(`Converting ${quantity} g to ${quantityToAdd} kg for inventory update`);
+                      }
+                      // Convert mg to kg
+                      else if (unit === 'mg') {
+                        quantityToAdd = quantity / 1000000;
+                        console.log(`Converting ${quantity} mg to ${quantityToAdd} kg for inventory update`);
+                      }
+                    }
+                    // Handle g to mg and mg to g conversions
+                    else if ((inventoryItem.unit === 'g' && unit === 'mg') ||
+                             (inventoryItem.unit === 'mg' && unit === 'g')) {
+                      if (inventoryItem.unit === 'g' && unit === 'mg') {
+                        quantityToAdd = quantity / 1000;
+                        console.log(`Converting ${quantity} mg to ${quantityToAdd} g for inventory update`);
+                      } else {
+                        quantityToAdd = quantity * 1000;
+                        console.log(`Converting ${quantity} g to ${quantityToAdd} mg for inventory update`);
+                      }
+                    }
+                    // Handle volume unit conversions
+                    else if ((inventoryItem.unit === 'l' && unit === 'ml') ||
+                             (inventoryItem.unit === 'ml' && unit === 'l')) {
+                      if (inventoryItem.unit === 'l' && unit === 'ml') {
+                        quantityToAdd = quantity / 1000;
+                        console.log(`Converting ${quantity} ml to ${quantityToAdd} l for inventory update`);
+                      } else {
+                        quantityToAdd = quantity * 1000;
+                        console.log(`Converting ${quantity} l to ${quantityToAdd} ml for inventory update`);
+                      }
+                    }
+                  }
+
+                  // Only update the quantity and last_spent_price, NOT the last_price
+                  // The last_price should only be updated manually by the user
+                  const updateInventoryQuery = `
+                    UPDATE inventory_items
+                    SET quantity = quantity + ?,
+                        last_spent_price = ?,
+                        is_empty = 0,
+                        last_updated = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                  `;
+
+                  db.run(updateInventoryQuery, [quantityToAdd, totalPriceToStore, item_id], (err) => {
+                    if (err) {
+                      db.run('ROLLBACK');
+                      console.error('Error updating inventory item:', err);
+                      reject(err);
+                      return;
+                    }
+
+                    // Update the collection total
+                    const updateCollectionQuery = `
+                      UPDATE collections
+                      SET total_amount = (
+                        SELECT SUM(price) FROM collection_items WHERE collection_id = ?
+                      )
+                      WHERE id = ?
+                    `;
+
+                    db.run(updateCollectionQuery, [collection_id, collection_id], (err) => {
+                      if (err) {
+                        db.run('ROLLBACK');
+                        console.error('Error updating collection total:', err);
+                        reject(err);
+                        return;
+                      }
+
+                      // Commit the transaction
+                      db.run('COMMIT', (err) => {
+                        if (err) {
+                          console.error('Error committing transaction:', err);
+                          reject(err);
+                          return;
+                        }
+                        resolve(collectionItemId);
+                      });
+                    });
+                  });
+                });
+              });
+            }
+          });
+        });
+      } catch (error) {
+        console.error('Error in addCollectionItem:', error);
+        reject(error);
+      }
+    });
+  },

@@ -74,6 +74,16 @@ const registerCollectionHandlers = () => {
       throw error;
     }
   });
+
+  // Get price history for an item
+  ipcMain.handle('collections:getItemPriceHistory', async (_, itemId) => {
+    try {
+      return await CollectionDAO.getItemPriceHistory(itemId);
+    } catch (error) {
+      console.error(`Error getting price history for item ${itemId}:`, error);
+      throw error;
+    }
+  });
 };
 
 export default registerCollectionHandlers;

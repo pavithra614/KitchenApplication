@@ -7,6 +7,8 @@ import Modal from '../components/ui/Modal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import AddInventoryForm from '../components/inventory/AddInventoryForm';
 import EditInventoryForm from '../components/inventory/EditInventoryForm';
+import PriceHistoryView from '../components/inventory/PriceHistoryView';
+import { setupTemporaryPriceHistory } from '../utils/priceHistoryUtils';
 
 const Inventory = ({ isAddModalOpen, setIsAddModalOpen }) => {
   const [inventoryItems, setInventoryItems] = useState([]);
@@ -27,6 +29,10 @@ const Inventory = ({ isAddModalOpen, setIsAddModalOpen }) => {
   // State for confirmation dialog
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [itemToMarkEmpty, setItemToMarkEmpty] = useState(null);
+
+  // State for price history modal
+  const [isPriceHistoryModalOpen, setIsPriceHistoryModalOpen] = useState(false);
+  const [selectedItemForPriceHistory, setSelectedItemForPriceHistory] = useState(null);
 
   // Use props if provided, otherwise use local state
   const modalOpen = isAddModalOpen !== undefined ? isAddModalOpen : localIsAddModalOpen;
@@ -78,6 +84,12 @@ const Inventory = ({ isAddModalOpen, setIsAddModalOpen }) => {
     }
   };
 
+  // Set up temporary price history implementation when component mounts
+  useEffect(() => {
+    setupTemporaryPriceHistory();
+  }, []);
+
+  // Fetch inventory data when filters change
   useEffect(() => {
     fetchInventoryData();
   }, [filters]);
@@ -167,6 +179,11 @@ const Inventory = ({ isAddModalOpen, setIsAddModalOpen }) => {
   const handleEditItem = (item) => {
     setSelectedItem(item);
     setIsEditModalOpen(true);
+  };
+
+  const handleViewPriceHistory = (item) => {
+    setSelectedItemForPriceHistory(item);
+    setIsPriceHistoryModalOpen(true);
   };
 
   const handleUpdateItem = async (itemData) => {
@@ -291,21 +308,41 @@ const Inventory = ({ isAddModalOpen, setIsAddModalOpen }) => {
                       </div>
 
                       <div>
-                        <p className="text-xs text-gray-500">Last Price</p>
+                        <p className="text-xs text-gray-500">Unit Price</p>
                         <p className="font-medium">
-                          {item.last_price ? `₹${item.last_price.toFixed(2)}` : 'N/A'}
+                          {item.last_price ? `₹${item.last_price.toFixed(2)} per ${item.unit}` : 'N/A'}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex justify-between">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditItem(item)}
-                      >
-                        Edit
-                      </Button>
+                    {item.last_spent_price && (
+                      <div className="mb-4 bg-blue-50 p-2 rounded-md">
+                        <p className="text-xs text-blue-700">Last Spent Price</p>
+                        <p className="font-medium text-blue-800">
+                          ₹{parseFloat(item.last_spent_price).toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap justify-between gap-2">
+                      <div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditItem(item)}
+                          className="mr-2"
+                        >
+                          Edit
+                        </Button>
+
+                        <Button
+                          variant="info"
+                          size="sm"
+                          onClick={() => handleViewPriceHistory(item)}
+                        >
+                          Price History
+                        </Button>
+                      </div>
 
                       {!item.is_empty && (
                         <Button
@@ -373,6 +410,23 @@ const Inventory = ({ isAddModalOpen, setIsAddModalOpen }) => {
         confirmText="Mark as Empty"
         cancelText="Cancel"
       />
+
+      {/* Price History Modal */}
+      <Modal
+        isOpen={isPriceHistoryModalOpen}
+        onClose={() => {
+          setIsPriceHistoryModalOpen(false);
+          setSelectedItemForPriceHistory(null);
+        }}
+      >
+        {selectedItemForPriceHistory && (
+          <PriceHistoryView
+            itemId={selectedItemForPriceHistory.id}
+            itemName={selectedItemForPriceHistory.name}
+            unit={selectedItemForPriceHistory.unit}
+          />
+        )}
+      </Modal>
     </div>
   );
 };

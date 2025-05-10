@@ -1,0 +1,172 @@
+  /**
+   * Update a collection
+   * @param {Number} id - Collection ID
+   * @param {Object} updates - Fields to update
+   * @returns {Promise<Boolean>} - Promise resolving to success status
+   */
+  updateCollection: async (id, updates) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const db = await getDB();
+
+        const allowedFields = ['name', 'purchase_date', 'total_amount', 'notes'];
+        const setStatements = [];
+        const params = [];
+
+        // Build SET statements for allowed fields
+        for (const field of allowedFields) {
+          if (updates[field] !== undefined) {
+            setStatements.push(`${field} = ?`);
+            params.push(updates[field]);
+          }
+        }
+
+        if (setStatements.length === 0) {
+          resolve(false); // Nothing to update
+          return;
+        }
+
+        // Add ID to params
+        params.push(id);
+
+        const query = `
+          UPDATE collections
+          SET ${setStatements.join(', ')}
+          WHERE id = ?
+        `;
+
+        db.run(query, params, function(err) {
+          if (err) {
+            console.error(`Error updating collection ${id}:`, err);
+            reject(err);
+            return;
+          }
+          resolve(this.changes > 0);
+        });
+      } catch (error) {
+        console.error('Error in updateCollection:', error);
+        reject(error);
+      }
+    });
+  },
+
+  /**
+   * Delete a collection
+   * @param {Number} id - Collection ID
+   * @returns {Promise<Boolean>} - Promise resolving to success status
+   */
+  deleteCollection: async (id) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const db = await getDB();
+
+        // Begin a transaction
+        db.serialize(() => {
+          db.run('BEGIN TRANSACTION');
+
+          // Delete collection items first
+          const deleteItemsQuery = 'DELETE FROM collection_items WHERE collection_id = ?';
+
+          db.run(deleteItemsQuery, [id], (err) => {
+            if (err) {
+              db.run('ROLLBACK');
+              console.error(`Error deleting collection items for collection ${id}:`, err);
+              reject(err);
+              return;
+            }
+
+            // Delete the collection
+            const deleteCollectionQuery = 'DELETE FROM collections WHERE id = ?';
+
+            db.run(deleteCollectionQuery, [id], function(err) {
+              if (err) {
+                db.run('ROLLBACK');
+                console.error(`Error deleting collection ${id}:`, err);
+                reject(err);
+                return;
+              }
+
+              const changes = this.changes;
+
+              // Commit the transaction
+              db.run('COMMIT', (err) => {
+                if (err) {
+                  console.error('Error committing transaction:', err);
+                  reject(err);
+                  return;
+                }
+                resolve(changes > 0);
+              });
+            });
+          });
+        });
+      } catch (error) {
+        console.error('Error in deleteCollection:', error);
+        reject(error);
+      }
+    });
+  },
+
+  /**
+   * Get price history for an item
+   * @param {Number} itemId - Item ID
+   * @returns {Promise<Array>} - Promise resolving to list of price history entries
+   */
+  getItemPriceHistory: async (itemId) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (!itemId) {
+          console.error('Invalid item ID provided to getItemPriceHistory:', itemId);
+          resolve([]);
+          return;
+        }
+
+        console.log('Getting price history for item ID:', itemId);
+
+        const db = await getDB();
+
+        // First check if the price_history table exists
+        db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='price_history'", (err, table) => {
+          if (err) {
+            console.error('Error checking if price_history table exists:', err);
+            reject(err);
+            return;
+          }
+
+          if (!table) {
+            console.error('price_history table does not exist');
+            // Return empty array instead of rejecting to avoid crashing the UI
+            resolve([]);
+            return;
+          }
+
+          // Table exists, proceed with query
+          const query = `
+            SELECT ph.*, c.name as collection_name, c.purchase_date
+            FROM price_history ph
+            LEFT JOIN collections c ON ph.collection_id = c.id
+            WHERE ph.item_id = ?
+            ORDER BY ph.recorded_at DESC
+          `;
+
+          db.all(query, [itemId], (err, rows) => {
+            if (err) {
+              console.error(`Error getting price history for item ${itemId}:`, err);
+              reject(err);
+              return;
+            }
+
+            console.log(`Found ${rows ? rows.length : 0} price history records for item ${itemId}`);
+            resolve(rows || []);
+          });
+        });
+      } catch (error) {
+        console.error('Error in getItemPriceHistory:', error);
+        // Return empty array instead of rejecting to avoid crashing the UI
+        resolve([]);
+      }
+    });
+  }
+};
+
+export default CollectionDAO;

@@ -21,6 +21,8 @@ const Button = ({
     buttonClass += ' btn-danger';
   } else if (variant === 'success') {
     buttonClass += ' btn-success';
+  } else if (variant === 'info') {
+    buttonClass += ' btn-info';
   }
 
   // Add size class

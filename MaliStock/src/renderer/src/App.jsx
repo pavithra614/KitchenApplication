@@ -2,11 +2,18 @@ import { useState } from 'react';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
+import Collections from './pages/Collections';
 import Button from './components/ui/Button';
 
 function App() {
+  // State for navigation
   const [activeNavItem, setActiveNavItem] = useState('dashboard');
   const [pageTitle, setPageTitle] = useState('Dashboard');
+
+  // State for modals
+  const [isAddInventoryModalOpen, setIsAddInventoryModalOpen] = useState(false);
+  const [isAddCollectionModalOpen, setIsAddCollectionModalOpen] = useState(false);
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
 
   // Handle navigation
   const handleNavigate = (navItem) => {
@@ -50,7 +57,12 @@ function App() {
           />
         );
       case 'collections':
-        return <div className="text-center py-8">Collections page coming soon!</div>;
+        return (
+          <Collections
+            isAddModalOpen={isAddCollectionModalOpen}
+            setIsAddModalOpen={setIsAddCollectionModalOpen}
+          />
+        );
       case 'expenses':
         return <div className="text-center py-8">Expenses page coming soon!</div>;
       case 'categories':
@@ -61,11 +73,6 @@ function App() {
         return <Dashboard />;
     }
   };
-
-  // State for modals
-  const [isAddInventoryModalOpen, setIsAddInventoryModalOpen] = useState(false);
-  const [isAddCollectionModalOpen, setIsAddCollectionModalOpen] = useState(false);
-  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
 
   // Define actions for each page
   const renderActions = () => {

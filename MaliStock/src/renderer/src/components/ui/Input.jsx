@@ -40,6 +40,7 @@ const Input = ({
         required={required}
         className={inputClass}
         min={type === 'number' ? 0 : undefined}
+        step={type === 'number' ? 'any' : undefined}
         {...props}
       />
 

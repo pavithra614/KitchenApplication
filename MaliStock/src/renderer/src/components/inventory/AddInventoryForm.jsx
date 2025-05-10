@@ -4,6 +4,7 @@ import Select from '../ui/Select';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import AddCategoryForm from './AddCategoryForm';
+import { getStandardUnit, isWeightUnit, isVolumeUnit, isCountUnit } from '../../utils/unitUtils';
 
 const AddInventoryForm = ({ onAdd, onCancel }) => {
   const [categories, setCategories] = useState([]);
@@ -314,16 +315,46 @@ const AddInventoryForm = ({ onAdd, onCancel }) => {
         />
       </div>
 
-      <Input
-        label="Price"
-        id="last_price"
-        name="last_price"
-        type="number"
-        value={formData.last_price}
-        onChange={handleChange}
-        placeholder="0.00"
-        error={errors.last_price}
-      />
+      <div className="flex flex-col">
+        <Input
+          label={`Unit Price (₹ per ${formData.unit ? getStandardUnit(formData.unit) : 'unit'})`}
+          id="last_price"
+          name="last_price"
+          type="number"
+          value={formData.last_price}
+          onChange={handleChange}
+          placeholder="0.00"
+          step="0.01"
+          error={errors.last_price}
+        />
+
+        <div className="text-xs mt-1 bg-green-100 p-2 rounded-md text-green-800">
+          <span className="font-bold">MANUAL SETTING ONLY</span>
+          <span className="block mt-1">
+            This unit price is only updated manually by you. It will NOT change automatically when adding items to collections.
+          </span>
+
+          {formData.unit && (
+            <div className="mt-1">
+              {isWeightUnit(formData.unit) && (
+                <span>Enter the price per kg, regardless of the quantity in stock</span>
+              )}
+              {isVolumeUnit(formData.unit) && (
+                <span>Enter the price per liter, regardless of the quantity in stock</span>
+              )}
+              {isCountUnit(formData.unit) && (
+                <span>Enter the price per {formData.unit}, regardless of the quantity in stock</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="text-xs text-blue-600 mt-2 p-2 bg-blue-50 rounded-md">
+          <p className="font-medium">Price Tracking System:</p>
+          <p className="mt-1">1. Unit Price (this field): Set manually, used for calculations</p>
+          <p>2. Last Spent Price: Updated automatically when adding to collections</p>
+        </div>
+      </div>
 
       <div className="flex justify-end mt-6 space-x-2">
         <Button

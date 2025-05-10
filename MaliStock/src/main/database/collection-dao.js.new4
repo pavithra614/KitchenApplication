@@ -1,0 +1,108 @@
+  /**
+   * Update a collection
+   * @param {Number} id - Collection ID
+   * @param {Object} updates - Fields to update
+   * @returns {Promise<Boolean>} - Promise resolving to success status
+   */
+  updateCollection: async (id, updates) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const db = await getDB();
+
+        const allowedFields = ['name', 'purchase_date', 'total_amount', 'notes'];
+        const setStatements = [];
+        const params = [];
+
+        // Build SET statements for allowed fields
+        for (const field of allowedFields) {
+          if (updates[field] !== undefined) {
+            setStatements.push(`${field} = ?`);
+            params.push(updates[field]);
+          }
+        }
+
+        if (setStatements.length === 0) {
+          resolve(false); // Nothing to update
+          return;
+        }
+
+        // Add ID to params
+        params.push(id);
+
+        const query = `
+          UPDATE collections
+          SET ${setStatements.join(', ')}
+          WHERE id = ?
+        `;
+
+        db.run(query, params, function(err) {
+          if (err) {
+            console.error(`Error updating collection ${id}:`, err);
+            reject(err);
+            return;
+          }
+          resolve(this.changes > 0);
+        });
+      } catch (error) {
+        console.error('Error in updateCollection:', error);
+        reject(error);
+      }
+    });
+  },
+
+  /**
+   * Delete a collection
+   * @param {Number} id - Collection ID
+   * @returns {Promise<Boolean>} - Promise resolving to success status
+   */
+  deleteCollection: async (id) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const db = await getDB();
+
+        // Begin a transaction
+        db.serialize(() => {
+          db.run('BEGIN TRANSACTION');
+
+          // Delete collection items first
+          const deleteItemsQuery = 'DELETE FROM collection_items WHERE collection_id = ?';
+
+          db.run(deleteItemsQuery, [id], (err) => {
+            if (err) {
+              db.run('ROLLBACK');
+              console.error(`Error deleting collection items for collection ${id}:`, err);
+              reject(err);
+              return;
+            }
+
+            // Delete the collection
+            const deleteCollectionQuery = 'DELETE FROM collections WHERE id = ?';
+
+            db.run(deleteCollectionQuery, [id], function(err) {
+              if (err) {
+                db.run('ROLLBACK');
+                console.error(`Error deleting collection ${id}:`, err);
+                reject(err);
+                return;
+              }
+
+              const changes = this.changes;
+
+              // Commit the transaction
+              db.run('COMMIT', (err) => {
+                if (err) {
+                  console.error('Error committing transaction:', err);
+                  reject(err);
+                  return;
+                }
+                resolve(changes > 0);
+              });
+            });
+          });
+        });
+      } catch (error) {
+        console.error('Error in deleteCollection:', error);
+        reject(error);
+      }
+    });
+  },

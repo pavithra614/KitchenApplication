@@ -21,7 +21,8 @@ const api = {
     add: (collection) => ipcRenderer.invoke('collections:add', collection),
     addItem: (item) => ipcRenderer.invoke('collections:addItem', item),
     update: (id, updates) => ipcRenderer.invoke('collections:update', { id, updates }),
-    delete: (id) => ipcRenderer.invoke('collections:delete', id)
+    delete: (id) => ipcRenderer.invoke('collections:delete', id),
+    getItemPriceHistory: (itemId) => ipcRenderer.invoke('collections:getItemPriceHistory', itemId)
   },
 
   // Category operations
